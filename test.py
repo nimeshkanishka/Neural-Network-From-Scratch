@@ -28,30 +28,24 @@ if __name__ == "__main__":
     )
     loss_fn = nn.MSELoss()
 
-    num_epochs = 20_000
-    learning_rate = 0.1
+    num_epochs = 25_000
+    learning_rate = 1.0
 
     loss_history = []
 
     for i in range(num_epochs):
-        total_loss = 0.0
+        # Forward pass
+        y_pred = model.forward(X)
 
-        for j in range(len(X)):
-            # Forward pass
-            y_pred = model.forward(X[j])
+        loss = loss_fn.forward(y_pred, y)
 
-            loss = loss_fn.forward(y_pred, y[j])
-            total_loss += loss
+        # Backward pass
+        output_gradient = loss_fn.backward()
+        output_gradient = model.backward(output_gradient, learning_rate)
 
-            # Backward pass
-            output_gradient = loss_fn.backward()
-            output_gradient = model.backward(output_gradient, learning_rate)
-
-        epoch_loss = total_loss / len(X)
-        loss_history.append(epoch_loss)
-
+        loss_history.append(loss)
         if (i + 1) % 1000 == 0:
-            print(f"Epoch: {i + 1} - Loss: {epoch_loss:.4f}")
+            print(f"Epoch: {i + 1} - Loss: {loss:.4f}")
 
     # Generate loss vs epoch graph
     plt.plot(range(1, num_epochs + 1), loss_history)
