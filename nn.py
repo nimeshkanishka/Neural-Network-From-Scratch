@@ -1,9 +1,10 @@
 import math
 import random
+from typing import Callable
 
 
 class Module:
-    def __init__(self):
+    def __init__(self) -> None:
         pass
     
     def forward(self):
@@ -14,109 +15,126 @@ class Module:
     
 
 class Sequential(Module):
-    def __init__(self, *args: Module):
+    def __init__(self, *args: Module) -> None:
         self.layers = [*args]
 
-    def forward(self, input):
+    def forward(self, input: list[list[float]]) -> list[list[float]]:
         for layer in self.layers:
             input = layer.forward(input)
         return input
     
-    def backward(self, output_gradient, lr):
+    def backward(self, output_gradient: list[list[float]], lr: float) -> list[list[float]]:
         for layer in self.layers[::-1]:
             output_gradient = layer.backward(output_gradient, lr)
         return output_gradient
     
 
 class Layer(Module):
-    def __init__(self):
+    def __init__(self) -> None:
         self.input = None
+        self.batch_size = None
 
-    def forward(self, input):
+    def forward(self, input: list[list[float]]):
         raise NotImplementedError
 
-    def backward(self, output_gradient, lr):
+    def backward(self, output_gradient: list[list[float]], lr: float):
         raise NotImplementedError
 
 
 class Linear(Layer):
-    def __init__(self, in_features: int, out_features: int):
+    def __init__(self, in_features: int, out_features: int) -> None:
         super(Linear, self).__init__()
 
         self.in_features = in_features
         self.out_features = out_features
 
-        # Get random weights and between -1 and +1 and scale them by 1 / sqrt(in_features)
+        limit = math.sqrt(1.0 / in_features)
         self.weights = [
-            [
-                random.uniform(-1.0, 1.0) / math.sqrt(self.in_features)
-                for _ in range(self.out_features)
-            ]
-            for _ in range(self.in_features)
+            [random.uniform(-limit, limit) for _ in range(out_features)]
+            for _ in range(in_features)
         ]
+        self.biases = [random.uniform(-limit, limit) for _ in range(out_features)]
 
-        self.biases = [
-            random.uniform(-1.0, 1.0) / math.sqrt(self.in_features)
-            for _ in range(out_features)
-        ]
-
-    def forward(self, input):
+    def forward(self, input: list[list[float]]) -> list[list[float]]:
         self.input = input
+        self.batch_size = len(input)
 
-        output = [0.0 for _ in range(self.out_features)]
-        for j in range(self.out_features):
-            out = self.biases[j]
-            for i in range(self.in_features):
-                out += input[i] * self.weights[i][j]
-            output[j] = out
+        output = [
+            [0.0 for _ in range(self.out_features)]
+            for _ in range(self.batch_size)
+        ]
+        for b in range(self.batch_size):
+            for j in range(self.out_features):
+                out = self.biases[j]
+                for i in range(self.in_features):
+                    out += input[b][i] * self.weights[i][j]
+                output[b][j] = out
         return output
 
-    def backward(self, output_gradient, lr):
-        weight_gradient = [[0.0 for _ in range(self.out_features)] for _ in range(self.in_features)]
-        bias_gradient = output_gradient
-        input_gradient = [0.0 for _ in range(self.in_features)]
+    def backward(self, output_gradient: list[list[float]], lr: float) -> list[list[float]]:
+        weight_gradient = [
+            [0.0 for _ in range(self.out_features)]
+            for _ in range(self.in_features)
+        ]
+        bias_gradient = [0.0 for _ in range(self.out_features)]
+        input_gradient = [
+            [0.0 for _ in range(self.in_features)]
+            for _ in range(self.batch_size)
+        ]
 
+        # Calculate gradients
+        for b in range(self.batch_size):
+            for j in range(self.out_features):
+                bias_gradient[j] += output_gradient[b][j]
+                for i in range(self.in_features):
+                    weight_gradient[i][j] += self.input[b][i] * output_gradient[b][j]
+                    input_gradient[b][i] += self.weights[i][j] * output_gradient[b][j]
+
+        # Update weights and biases
         for j in range(self.out_features):
+            self.biases[j] -= (bias_gradient[j] / self.batch_size) * lr
             for i in range(self.in_features):
-                weight_gradient[i][j] = self.input[i] * output_gradient[j]
-                input_gradient[i] += self.weights[i][j] * output_gradient[j]
-
-        for j in range(self.out_features):
-            for i in range(self.in_features):
-                self.weights[i][j] -= weight_gradient[i][j] * lr
-
-            self.biases[j] -= bias_gradient[j] * lr
+                self.weights[i][j] -= (weight_gradient[i][j] / self.batch_size) * lr
 
         return input_gradient
     
 
 class Activation(Layer):
-    def __init__(self, activation_fn, activation_prime_fn):
+    def __init__(self, activation_fn: Callable[[float], float], activation_prime_fn: Callable[[float], float]) -> None:
         super(Activation, self).__init__()
 
         self.activation_fn = activation_fn
         self.activation_prime_fn = activation_prime_fn
 
-    def forward(self, input):
-        self.input = input
-        out_features = len(input)
+        self.out_features = None
 
-        output = [0.0 for _ in range(out_features)]
-        for j in range(out_features):
-            output[j] = self.activation_fn(input[j])
+    def forward(self, input: list[list[float]]) -> list[list[float]]:
+        self.input = input
+        self.batch_size = len(input)
+        self.out_features = len(input[0])
+
+        output = [
+            [0.0 for _ in range(self.out_features)]
+            for _ in range(self.batch_size)
+        ]
+        for b in range(self.batch_size):
+            for j in range(self.out_features):
+                output[b][j] = self.activation_fn(input[b][j])
         return output
 
-    def backward(self, output_gradient, lr):
-        in_features = len(output_gradient)
-
-        input_gradient = [0.0 for _ in range(in_features)]
-        for i in range(in_features):
-            input_gradient[i] = self.activation_prime_fn(self.input[i]) * output_gradient[i]
+    def backward(self, output_gradient: list[list[float]], lr: float) -> list[list[float]]:
+        input_gradient = [
+            [0.0 for _ in range(self.out_features)]
+            for _ in range(self.batch_size)
+        ]
+        for b in range(self.batch_size):
+            for i in range(self.out_features):
+                input_gradient[b][i] = self.activation_prime_fn(self.input[b][i]) * output_gradient[b][i]
         return input_gradient
 
 
 class Sigmoid(Activation):
-    def __init__(self):
+    def __init__(self) -> None:
         sigmoid = lambda x: 1 / (1 + math.exp(-x))
 
         def sigmoid_prime(x):
@@ -127,23 +145,30 @@ class Sigmoid(Activation):
 
 
 class MSELoss(Module):
-    def __init__(self):
+    def __init__(self) -> None:
         self.input = None
         self.target = None
+        self.batch_size = None
+        self.out_features = None
 
-    def forward(self, input, target):
+    def forward(self, input: list[list[float]], target: list[list[float]]) -> float:
         self.input = input
         self.target = target
+        self.batch_size = len(input)
+        self.out_features = len(input[0])
 
-        loss = 0.0
-        for i in range(len(input)):
-            loss += (target[i] - input[i]) ** 2
-        return loss
+        total_loss = 0.0
+        for b in range(self.batch_size):
+            for i in range(self.out_features):
+                total_loss += (input[b][i] - target[b][i]) ** 2
+        return total_loss / (self.batch_size * self.out_features)
 
-    def backward(self):
-        out_features = len(self.input)
-
-        input_gradient = [0.0 for _ in range(out_features)]
-        for i in range(out_features):
-            input_gradient[i] = 2 * (self.input[i] - self.target[i])
+    def backward(self) -> list[list[float]]:
+        input_gradient = [
+            [0.0 for _ in range(self.out_features)]
+            for _ in range(self.batch_size)
+        ]
+        for b in range(self.batch_size):
+            for i in range(self.out_features):
+                input_gradient[b][i] = 2 * (self.input[b][i] - self.target[b][i]) / (self.batch_size * self.out_features)
         return input_gradient
