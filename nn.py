@@ -133,6 +133,15 @@ class Activation(Layer):
         return input_gradient
 
 
+class ReLU(Activation):
+    def __init__(self) -> None:
+        relu = lambda x: max(0.0, x)
+
+        relu_prime = lambda x: 1.0 if x > 0.0 else 0.0
+        
+        super(ReLU, self).__init__(relu, relu_prime)
+
+
 class Sigmoid(Activation):
     def __init__(self) -> None:
         sigmoid = lambda x: 1 / (1 + math.exp(-x))
