@@ -22,7 +22,7 @@ if __name__ == "__main__":
 
     model = nn.Sequential(
         nn.Linear(2, 4),
-        nn.Sigmoid(),
+        nn.ReLU(),
         nn.Linear(4, 2),
         nn.Sigmoid()
     )
