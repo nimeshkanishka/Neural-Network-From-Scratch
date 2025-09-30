@@ -153,14 +153,17 @@ class Sigmoid(Activation):
         super(Sigmoid, self).__init__(sigmoid, sigmoid_prime)
 
 
-class MSELoss(Module):
-    def __init__(self) -> None:
+class Loss(Module):
+    def __init__(self, loss_fn: Callable[[float, float], float], loss_prime_fn: Callable[[float, float], float]) -> None:
+        self.loss_fn = loss_fn
+        self.loss_prime_fn = loss_prime_fn
+
         self.input = None
         self.target = None
         self.batch_size = None
         self.out_features = None
 
-    def forward(self, input: list[list[float]], target: list[list[float]]) -> float:
+    def forward(self, input: list[list[float]], target: list[list[float]]) -> float:        
         self.input = input
         self.target = target
         self.batch_size = len(input)
@@ -169,7 +172,7 @@ class MSELoss(Module):
         total_loss = 0.0
         for b in range(self.batch_size):
             for i in range(self.out_features):
-                total_loss += (input[b][i] - target[b][i]) ** 2
+                total_loss += self.loss_fn(input[b][i], target[b][i])
         return total_loss / (self.batch_size * self.out_features)
 
     def backward(self) -> list[list[float]]:
@@ -179,5 +182,23 @@ class MSELoss(Module):
         ]
         for b in range(self.batch_size):
             for i in range(self.out_features):
-                input_gradient[b][i] = 2 * (self.input[b][i] - self.target[b][i]) / (self.batch_size * self.out_features)
+                input_gradient[b][i] = self.loss_prime_fn(self.input[b][i], self.target[b][i]) / (self.batch_size * self.out_features)
         return input_gradient
+
+
+class MSELoss(Loss):
+    def __init__(self) -> None:
+        mse = lambda i, t: (i - t) ** 2
+
+        mse_prime = lambda i, t: 2 * (i - t)
+
+        super(MSELoss, self).__init__(mse, mse_prime)
+    
+
+class BCELoss(Loss):
+    def __init__(self) -> None:
+        bce = lambda i, t: -(t * math.log(i) + (1 - t) * math.log(1 - i))
+
+        bce_prime = lambda i, t: -(t / i - (1 - t) / (1 - i))
+
+        super(BCELoss, self).__init__(bce, bce_prime)
