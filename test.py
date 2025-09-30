@@ -7,6 +7,7 @@ import nn
 
 
 if __name__ == "__main__":
+    # XOR dataset
     X = [
         [0, 0],
         [0, 1],
@@ -14,19 +15,19 @@ if __name__ == "__main__":
         [1, 1]
     ]
     y = [
-        [1, 0],
-        [0, 1],
-        [0, 1],
-        [1, 0]
+        [0],
+        [1],
+        [1],
+        [0]
     ]
 
     model = nn.Sequential(
         nn.Linear(2, 4),
         nn.ReLU(),
-        nn.Linear(4, 2),
+        nn.Linear(4, 1),
         nn.Sigmoid()
     )
-    loss_fn = nn.MSELoss()
+    loss_fn = nn.BCELoss()
 
     num_epochs = 25_000
     learning_rate = 1.0
