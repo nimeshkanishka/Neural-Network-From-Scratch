@@ -92,9 +92,9 @@ class Linear(Layer):
 
         # Update weights and biases
         for j in range(self.out_features):
-            self.biases[j] -= (bias_gradient[j] / self.batch_size) * lr
+            self.biases[j] -= bias_gradient[j] * lr
             for i in range(self.in_features):
-                self.weights[i][j] -= (weight_gradient[i][j] / self.batch_size) * lr
+                self.weights[i][j] -= weight_gradient[i][j] * lr
 
         return input_gradient
     
