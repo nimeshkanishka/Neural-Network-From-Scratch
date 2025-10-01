@@ -29,8 +29,8 @@ if __name__ == "__main__":
     )
     loss_fn = nn.BCELoss()
 
-    num_epochs = 25_000
-    learning_rate = 1.0
+    num_epochs = 10_000
+    learning_rate = 0.5
 
     loss_history = []
 
