@@ -14,21 +14,6 @@ class Module:
         raise NotImplementedError
     
 
-class Sequential(Module):
-    def __init__(self, *args: Module) -> None:
-        self.layers = [*args]
-
-    def forward(self, input: list[list[float]]) -> list[list[float]]:
-        for layer in self.layers:
-            input = layer.forward(input)
-        return input
-    
-    def backward(self, output_gradient: list[list[float]], lr: float) -> list[list[float]]:
-        for layer in self.layers[::-1]:
-            output_gradient = layer.backward(output_gradient, lr)
-        return output_gradient
-    
-
 class Layer(Module):
     def __init__(self) -> None:
         self.input = None
@@ -202,3 +187,30 @@ class BCELoss(Loss):
         bce_prime = lambda i, t: (1 - t) / (1 - i) - t / i
 
         super(BCELoss, self).__init__(bce, bce_prime)
+
+
+class Sequential(Module):
+    def __init__(self, *args: Module) -> None:
+        self.layers = []
+        for layer in args:
+            if not isinstance(layer, Module):
+                raise TypeError(
+                    f"Sequential can only contain objects of type Module, got {type(layer).__name__}"
+                )
+            if isinstance(layer, Loss):
+                raise TypeError(
+                    f"Sequential cannot contain Loss objects, got {type(layer).__name__}"
+                )
+            self.layers.append(layer)
+
+    def forward(self, input: list[list[float]]) -> list[list[float]]:
+        output = input
+        for layer in self.layers:
+            output = layer.forward(output)
+        return output
+    
+    def backward(self, output_gradient: list[list[float]], lr: float) -> list[list[float]]:
+        input_gradient = output_gradient
+        for layer in self.layers[::-1]:
+            input_gradient = layer.backward(input_gradient, lr)
+        return input_gradient
