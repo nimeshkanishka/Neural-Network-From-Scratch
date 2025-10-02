@@ -199,6 +199,6 @@ class BCELoss(Loss):
     def __init__(self) -> None:
         bce = lambda i, t: -(t * math.log(i) + (1 - t) * math.log(1 - i))
 
-        bce_prime = lambda i, t: -(t / i - (1 - t) / (1 - i))
+        bce_prime = lambda i, t: (1 - t) / (1 - i) - t / i
 
         super(BCELoss, self).__init__(bce, bce_prime)
