@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 import nn
 
 
+NUM_EPOCHS = 10_000
+LEARNING_RATE = 0.5
+
+
 if __name__ == "__main__":
     # XOR dataset
     X = [
@@ -29,12 +33,9 @@ if __name__ == "__main__":
     )
     loss_fn = nn.BCELoss()
 
-    num_epochs = 10_000
-    learning_rate = 0.5
-
     loss_history = []
 
-    for i in range(num_epochs):
+    for i in range(NUM_EPOCHS):
         # Forward pass
         y_pred = model.forward(X)
 
@@ -42,14 +43,14 @@ if __name__ == "__main__":
 
         # Backward pass
         output_gradient = loss_fn.backward()
-        output_gradient = model.backward(output_gradient, learning_rate)
+        output_gradient = model.backward(output_gradient, LEARNING_RATE)
 
         loss_history.append(loss)
         if (i + 1) % 1000 == 0:
             print(f"Epoch: {i + 1} - Loss: {loss:.4f}")
 
     # Generate loss vs epoch graph
-    plt.plot(range(1, num_epochs + 1), loss_history)
+    plt.plot(range(1, NUM_EPOCHS + 1), loss_history)
     plt.title("MSE Loss vs Epoch")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
