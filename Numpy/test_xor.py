@@ -1,5 +1,5 @@
 """
-Learn XOR function using a very simple custom neural network.
+Learning XOR function using a very simple custom neural network.
 """
 
 import numpy as np
@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import nn
 
 
+# Training parameters
 NUM_EPOCHS = 10_000
 LEARNING_RATE = 0.5
 
@@ -26,6 +27,7 @@ if __name__ == "__main__":
         [0]
     ])
 
+    # Define network architecture
     model = nn.Sequential(
         nn.Linear(2, 4),
         nn.ReLU(),
