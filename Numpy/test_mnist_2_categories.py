@@ -16,9 +16,9 @@ DATASET_DIR = r"D:\Datasets\MNIST-PNG"
 # Here we will do binary classification of digits 0 and 1
 CATEGORIES = ["0", "1"]
 # Number of images per category used for training
-NUM_TRAIN_IMAGES_PER_CATEGORY = 2500
+NUM_TRAIN_IMAGES_PER_CATEGORY = 5000
 # Number of images per category used for testing (validation)
-NUM_TEST_IMAGES_PER_CATEGORY = 500
+NUM_TEST_IMAGES_PER_CATEGORY = 750
 # Training parameters
 NUM_EPOCHS = 10
 BATCH_SIZE = 64
@@ -46,29 +46,33 @@ if __name__ == "__main__":
 
             while num_images_to_add > 0:
                 i += 1
-                # Break if all images in the folder are processed even if we haven't reached the required count
+                # Break if all images in the directory are processed
+                # even if we don't have the required number of images
                 if i >= len(image_files):
                     break
+
+                image_path = os.path.join(image_folder, image_files[i])
 
                 try:
                     # Load image in grayscale mode
                     # Shape: (Height, Width)
-                    image_array = cv2.imread(os.path.join(image_folder, image_files[i]), cv2.IMREAD_GRAYSCALE)
-
-                    # Add pixel value array and label to the correct dataset
-                    if dataset == "train":
-                        X_train.append(image_array)
-                        y_train.append(label)
-                    else:
-                        X_test.append(image_array)
-                        y_test.append(label)
-
-                    num_images_to_add -= 1
+                    # For MNIST, Height = Width = 28
+                    image_array = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)                    
 
                 # Skip any image that cannot be loaded
                 except Exception as e:
                     print(f"Error processing image '{os.path.join(image_folder, image_files[i])}': {e}")
                     continue
+
+                # Add pixel value array and label to the correct dataset
+                if dataset == "train":
+                    X_train.append(image_array)
+                    y_train.append(label)
+                else:
+                    X_test.append(image_array)
+                    y_test.append(label)
+
+                num_images_to_add -= 1
 
     # Convert datasets to numpy arrays, reshape to match the shapes expected by the model
     # and normalize pixel values to [0, 1]
