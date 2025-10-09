@@ -1,5 +1,6 @@
 from typing import Callable
 import numpy as np
+from scipy import signal
 
 
 class Module:
@@ -62,13 +63,106 @@ class Linear(Layer):
         self.biases -= bias_gradient * lr
 
         return input_gradient
+
+
+class Conv2d(Layer):
+    def __init__(self,
+        input_shape: tuple[int, int, int],
+        out_channels: int,
+        kernel_size: int
+    ) -> None:
+        super(Conv2d, self).__init__()
+
+        # Input shape: (Input channels, Input height, Input width)
+        self.in_channels, in_height, in_width = input_shape
+        self.out_channels = out_channels
+
+        # Output size = (Input size - Kernel size + 2 * Padding) // Stride + 1
+        # Because stride = 1 and padding = 0,
+        # Output size = Input size - Kernel size + 1
+        # Output shape: (Output channels, Output height, Output width)
+        self.output_shape = (out_channels, in_height - kernel_size + 1, in_width - kernel_size + 1)
+
+        limit = np.sqrt(1.0 / (self.in_channels * kernel_size * kernel_size))
+        # Shape: (Out channels, In channels, Kernel height, Kernel width)
+        self.kernels = np.random.uniform(low=-limit, high=limit,
+                                         size=(out_channels, self.in_channels, kernel_size, kernel_size))
+        # Shape: (Out channels,)
+        self.biases = np.random.uniform(low=-limit, high=limit,
+                                        size=(out_channels,))
+        
+    def forward(
+        self,
+        input: np.ndarray
+    ) -> np.ndarray:
+        # Shape: (Batch size, Input channels, Input height, Input width)
+        self.input = input
+        self.batch_size = input.shape[0]
+
+        # Shape: (Batch size, Output channels, Output height, Output width)
+        output = np.full(shape=(self.batch_size, *self.output_shape), fill_value=self.biases[:, None, None])
+        for b in range(self.batch_size):
+            for i in range(self.out_channels):
+                for j in range(self.in_channels):
+                    output[b, i] += signal.correlate2d(input[b, j], self.kernels[i, j], mode="valid")
+        return output
+    
+    def backward(
+        self,
+        output_gradient: np.ndarray,
+        lr: float
+    ) -> np.ndarray:
+        # Shape of output_gradient: (Batch size, Output channels, Output height, Output width)
+
+        # Initialize gradients
+        # Shape: (Out channels, In channels, Kernel height, Kernel width)
+        kernel_gradient = np.zeros_like(self.kernels)
+        # Shape: (Out channels,)
+        bias_gradient = np.sum(output_gradient, axis=(0, 2, 3))
+        # Shape: (Batch size, Input channels, Input height, Input width)
+        input_gradient = np.zeros_like(self.input)
+
+        # Calculate gradients
+        for b in range(self.batch_size):
+            for i in range(self.out_channels):
+                for j in range(self.in_channels):
+                    kernel_gradient[i, j] += signal.correlate2d(self.input[b, j], output_gradient[b, i], mode="valid")
+                    input_gradient[b, j] += signal.convolve2d(output_gradient[b, i], self.kernels[i, j], mode="full")
+
+        # Update kernels and biases
+        self.kernels -= kernel_gradient * lr
+        self.biases -= bias_gradient * lr
+
+        return input_gradient
+
+
+class Flatten(Layer):
+    def __init__(self) -> None:
+        super(Flatten, self).__init__()
+
+    def forward(self,
+        input: np.ndarray
+    ) -> np.ndarray:
+        # Shape: (Batch size, Channels, Height, Width)
+        self.input = input
+
+        # Shape: (Batch size, Channels * Height * Width)
+        return np.reshape(input, (input.shape[0], -1))
+
+    def backward(
+        self,
+        output_gradient: np.ndarray,
+        lr: float
+    ) -> np.ndarray:
+        # (Batch size, Channels * Height * Width) -> (Batch size, Channels, Height, Width)
+        return np.reshape(output_gradient, self.input.shape)
     
 
 class Activation(Layer):
     def __init__(
-            self,
-            activation_fn: Callable[[np.ndarray], np.ndarray],
-            activation_prime_fn: Callable[[np.ndarray], np.ndarray]
+        self,
+        activation_fn: Callable[[np.ndarray], np.ndarray],
+        activation_prime_fn: Callable[[np.ndarray], np.ndarray]
     ) -> None:
         super(Activation, self).__init__()
 
