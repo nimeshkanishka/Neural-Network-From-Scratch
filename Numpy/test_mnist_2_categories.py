@@ -11,7 +11,7 @@ import nn
 
 
 # Parent directory of the dataset
-DATASET_DIR = r"D:\Datasets\MNIST-PNG"
+DATASET_PARENT_DIR = r"D:\Datasets\MNIST-PNG"
 # Categories to use for training
 # Here we will do binary classification of digits 0 and 1
 CATEGORIES = ["0", "1"]
@@ -32,36 +32,34 @@ if __name__ == "__main__":
     X_test, y_test = [], []
 
     for dataset in ["train", "test"]:
-        dataset_folder = os.path.join(DATASET_DIR, dataset)
+        # Directory containing the current dataset
+        dataset_dir = os.path.join(DATASET_PARENT_DIR, dataset)
 
         # Add the required number of images from each category to the dataset
         for label, category in enumerate(CATEGORIES):
-            image_folder = os.path.join(dataset_folder, category)
-            image_files = os.listdir(image_folder)
+            # Directory containing images from the current category
+            image_dir = os.path.join(dataset_dir, category)
 
-            # Number of images to be added from this category
+            # Number of images to be added from the current category
             num_images_to_add = NUM_TRAIN_IMAGES_PER_CATEGORY if dataset == "train" else NUM_TEST_IMAGES_PER_CATEGORY
-            # Current index in the list of image files
-            i = -1
-
-            while num_images_to_add > 0:
-                i += 1
-                # Break if all images in the directory are processed
-                # even if we don't have the required number of images
-                if i >= len(image_files):
-                    break
-
-                image_path = os.path.join(image_folder, image_files[i])
+            
+            for image_file in os.listdir(image_dir):
+                image_path = os.path.join(image_dir, image_file)
 
                 try:
                     # Load image in grayscale mode
                     # Shape: (Height, Width)
                     # For MNIST, Height = Width = 28
-                    image_array = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)                    
+                    image_array = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
 
                 # Skip any image that cannot be loaded
                 except Exception as e:
-                    print(f"Error processing image '{os.path.join(image_folder, image_files[i])}': {e}")
+                    print(f"Warning: Could not process file '{image_path}': {e}")
+                    continue
+
+                # Skip any files that do not contain a valid image
+                if image_array is None:
+                    print(f"Warning: File '{image_path}' could not be read as an image.")
                     continue
 
                 # Add pixel value array and label to the correct dataset
@@ -72,7 +70,10 @@ if __name__ == "__main__":
                     X_test.append(image_array)
                     y_test.append(label)
 
+                # Decrement the counter and break the loop if we have processed the required number of images
                 num_images_to_add -= 1
+                if num_images_to_add <= 0:
+                    break
 
     # Convert datasets to numpy arrays, reshape to match the shapes expected by the model
     # and normalize pixel values to [0, 1]
