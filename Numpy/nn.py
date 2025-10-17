@@ -222,6 +222,7 @@ class Softmax(Layer):
 
         # Shape: (Batch size, Classes)
         input_exponential = np.exp(input)
+
         # Shape: (Batch size, Classes) / (Batch size, 1)
         #     -> (Batch size, Classes) / (Batch size, Classes)
         #     -> (Batch size, Classes)
@@ -261,37 +262,62 @@ class Loss(Module):
 
         self.input = None
         self.target = None
+        self.batch_size = None
 
     def forward(
         self,
         input: np.ndarray,
         target: np.ndarray
-    ) -> float:        
+    ) -> float:
+        # Shape: (Batch size, Features)
         self.input = input
         self.target = target
+        self.batch_size = self.input.shape[0]
 
         return np.mean(self.loss_fn(input, target))
 
     def backward(self) -> np.ndarray:
-        return self.loss_prime_fn(self.input, self.target) / np.size(self.input)
+        # Normalized by batch size
+        return self.loss_prime_fn(self.input, self.target) / self.batch_size
 
 
 class MSELoss(Loss):
-    def __init__(self) -> None:
-        mse = lambda i, t: (i - t) ** 2
+    """
+    Read more: https://neuralthreads.medium.com/mean-square-error-the-most-used-regression-loss-2f684ec4ca04
+    """
 
-        mse_prime = lambda i, t: 2 * (i - t)
+    def __init__(self) -> None:
+        mse = lambda i, t: (t - i) ** 2
+
+        mse_prime = lambda i, t: 2 * (i - t) / i.shape[-1]
 
         super(MSELoss, self).__init__(mse, mse_prime)
     
 
 class BCELoss(Loss):
+    """
+    Read more: https://neuralthreads.medium.com/binary-cross-entropy-loss-special-case-of-categorical-cross-entropy-loss-95c0c338d183
+    """
+
     def __init__(self) -> None:
         bce = lambda i, t: -(t * np.log(i) + (1.0 - t) * np.log(1.0 - i))
 
-        bce_prime = lambda i, t: -(t / i - (1.0 - t) / (1.0 - i))
+        bce_prime = lambda i, t: -(t / i - (1.0 - t) / (1.0 - i)) / i.shape[-1]
 
         super(BCELoss, self).__init__(bce, bce_prime)
+
+
+class CrossEntropyLoss(Loss):
+    """
+    Read more: https://neuralthreads.medium.com/categorical-cross-entropy-loss-the-most-important-loss-function-d3792151d05b
+    """
+
+    def __init__(self) -> None:
+        cross_entropy = lambda i, t: -np.sum(t * np.log(i), axis=-1)
+
+        cross_entropy_prime = lambda i, t: -t / i
+
+        super(CrossEntropyLoss, self).__init__(cross_entropy, cross_entropy_prime)
 
 
 class Sequential(Module):
