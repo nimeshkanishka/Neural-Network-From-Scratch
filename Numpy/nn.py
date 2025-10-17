@@ -91,6 +91,8 @@ class Conv2d(Layer):
         self.biases = np.random.uniform(low=-limit, high=limit,
                                         size=(out_channels,))
         
+        self.batch_size = None
+        
     def forward(
         self,
         input: np.ndarray
@@ -203,6 +205,49 @@ class Sigmoid(Activation):
             return s * (1 - s)
         
         super(Sigmoid, self).__init__(sigmoid, sigmoid_prime)
+
+
+class Softmax(Layer):
+    def __init__(self):
+        super(Softmax, self).__init__()
+
+        self.output = None
+
+    def forward(
+        self,
+        input: np.ndarray
+    ) -> np.ndarray:
+        # Shape: (Batch size, Classes)
+        self.input = input
+
+        # Shape: (Batch size, Classes)
+        input_exponential = np.exp(input)
+        # Shape: (Batch size, Classes) / (Batch size, 1)
+        #     -> (Batch size, Classes) / (Batch size, Classes)
+        #     -> (Batch size, Classes)
+        self.output = input_exponential / np.sum(input_exponential, axis=-1, keepdims=True)
+        return self.output
+    
+    def backward(
+        self,
+        output_gradient: np.ndarray,
+        lr: float
+    ) -> np.ndarray:
+        # For each sample in the batch:
+        # dL/dx_i = y_i * (dL/dy_i - sum_j(y_j * dL/dy_j))
+
+        # dot = sum(y * dL/dy)
+        #     = sum(output * output_gradient)
+        # Shape: (Batch size, 1)
+        dot = np.sum(self.output * output_gradient, axis=-1, keepdims=True)
+
+        # dL/dx = y * (dL/dy - sum(y * dL/dy))
+        #       = output * (output_gradient - dot)
+        # This uses the Jacobian of the softmax function: J = diag(y) - y yᵀ.
+        # Shape: (Batch size, Classes) * ((Batch size, Classes) - (Batch size, 1))
+        #     -> (Batch size, Classes) * ((Batch size, Classes) - (Batch size, Classes))
+        #     -> (Batch size, Classes)
+        return self.output * (output_gradient - dot)
 
 
 class Loss(Module):
