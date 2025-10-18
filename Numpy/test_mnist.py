@@ -1,5 +1,5 @@
 """
-Training a convolutional neural network on the full MNIST dataset (all 10 categories; 5k training images per class).
+Training a convolutional neural network on the full MNIST dataset (all 10 categories; 2.5k training images per class).
 """
 
 import os
@@ -11,22 +11,25 @@ import nn
 
 
 # Parent directory of the dataset
+# Dataset from: https://www.kaggle.com/datasets/ben519/mnist-as-png
 DATASET_PARENT_DIR = r"D:\Datasets\MNIST-PNG"
 # Number of images per category used for training
-NUM_TRAIN_IMAGES_PER_CATEGORY = 5000
+NUM_TRAIN_IMAGES_PER_CATEGORY = 2500
 # Number of images per category used for testing (validation)
-NUM_TEST_IMAGES_PER_CATEGORY = 750
+NUM_TEST_IMAGES_PER_CATEGORY = 500
 # Training parameters
-NUM_EPOCHS = 10
+NUM_EPOCHS = 15
 BATCH_SIZE = 64
 LEARNING_RATE = 1e-3
 
 
 if __name__ == "__main__":
+    print("Creating datasets...")
+
     # Training dataset
-    train_images, train_labels = [], []
+    X_train, y_train = [], []
     # Test dataset
-    test_images, test_labels = [], []
+    X_test, y_test = [], []
 
     for dataset in ["train", "test"]:
         # Directory containing the current dataset
@@ -61,44 +64,47 @@ if __name__ == "__main__":
 
                 # Add pixel value array and label to the correct dataset
                 if dataset == "train":
-                    train_images.append(image_array)
-                    train_labels.append(label)
+                    X_train.append(image_array)
+                    y_train.append(label)
                 else:
-                    test_images.append(image_array)
-                    test_labels.append(label)
+                    X_test.append(image_array)
+                    y_test.append(label)
 
                 # Decrement the counter and break the loop if we have processed the required number of images
                 num_images_to_add -= 1
                 if num_images_to_add <= 0:
                     break
 
-    # Convert datasets to numpy arrays, reshape to match the shapes expected by the model
-    # and normalize pixel values to [0, 1]
-    # Shape: (Number of training images, Channels, Height, Width)
-    X_train = np.array(train_images, dtype=np.float32).reshape(-1, 1, 28, 28) / 255.0
-    # Shape: (Number of test images, Channels, Height, Width)
-    X_test = np.array(test_images, dtype=np.float32).reshape(-1, 1, 28, 28) / 255.0
+    print("Finished creating datasets!")
 
-    # Convert labels to numpy arrays and one-hot encode
+    # Convert image pixel value lists to numpy arrays
+    # Reshape to match the shapes expected by the model
+    # Normalize pixel values to [0, 1]
+    # Shape: (Number of training images, Channels, Height, Width)
+    X_train = np.array(X_train, dtype=np.float32).reshape(-1, 1, 28, 28) / 255.0
+    # Shape: (Number of test images, Channels, Height, Width)
+    X_test = np.array(X_test, dtype=np.float32).reshape(-1, 1, 28, 28) / 255.0
+
+    # Convert label lists to numpy arrays and one-hot encode
     # Shape: (Number of training images,)
-    train_labels = np.array(train_labels, dtype=np.uint8)
+    y_train = np.array(y_train, dtype=np.uint8)
     # Shape: (Number of training images, Number of classes)
-    y_train = np.eye(N=10, dtype=np.float32)[train_labels]    
+    y_train_one_hot = np.eye(10, dtype=np.float32)[y_train]
     # Shape: (Number of test images,)
-    test_labels = np.array(test_labels, dtype=np.uint8)
+    y_test = np.array(y_test, dtype=np.uint8)
     # Shape: (Number of test images, Number of classes)
-    y_test = np.eye(N=10, dtype=np.float32)[test_labels]
+    y_test_one_hot = np.eye(10, dtype=np.float32)[y_test]
 
     # Define CNN architecture
     model = nn.Sequential(
-        nn.Conv2d((1, 28, 28), 16, kernel_size=3),
+        nn.Conv2d((1, 28, 28), 8, kernel_size=3),
         nn.ReLU(),
-        nn.Conv2d((16, 26, 26), 32, kernel_size=3),
+        nn.Conv2d((8, 26, 26), 16, kernel_size=3),
         nn.ReLU(),
         nn.Flatten(),
-        nn.Linear(32 * 24 * 24, 256),
+        nn.Linear(16 * 24 * 24, 128),
         nn.ReLU(),
-        nn.Linear(256, 10),
+        nn.Linear(128, 10),
         nn.Softmax()
     )
     loss_fn = nn.CrossEntropyLoss()
@@ -115,22 +121,30 @@ if __name__ == "__main__":
 
         # Shuffle training data each epoch
         indices = np.random.permutation(X_train.shape[0])
-        X_train, y_train = X_train[indices], y_train[indices]
+        X_train, y_train, y_train_one_hot = X_train[indices], y_train[indices], y_train_one_hot[indices]
 
         # Training
         total_loss = 0.0
         correct_preds = 0
-        for i in tqdm(range(0, X_train.shape[0], BATCH_SIZE)):
+        for batch_start in tqdm(range(0, X_train.shape[0], BATCH_SIZE)):
+            # If the last batch is smaller than BATCH_SIZE, batch end index can't be batch_start + BATCH_SIZE
+            batch_end = min(batch_start + BATCH_SIZE, X_train.shape[0])
+
             # Get batch of images and labels
-            X = X_train[i : min(i + BATCH_SIZE, X_train.shape[0])]
-            y = y_train[i : min(i + BATCH_SIZE, y_train.shape[0])]
+            # Shape: (Batch size, Channels, Height, Width)
+            X = X_train[batch_start:batch_end]
+            # Shape: (Batch size,)
+            y = y_train[batch_start:batch_end]
+            # Shape: (Batch size, Classes)
+            y_one_hot = y_train_one_hot[batch_start:batch_end]
 
             # Forward pass
+            # Shape: (Batch size, Classes)
             y_pred = model.forward(X)
 
-            loss = loss_fn.forward(y_pred, y)
+            loss = loss_fn.forward(y_pred, y_one_hot)
             total_loss += loss
-            correct_preds += np.sum(np.argmax(y_pred) == np.argmax(y))
+            correct_preds += np.sum(np.argmax(y_pred, axis=-1) == y)
 
             # Backward pass
             output_gradient = loss_fn.backward()
@@ -145,16 +159,24 @@ if __name__ == "__main__":
         # Testing (Validation)
         total_loss = 0.0
         correct_preds = 0
-        for i in range(0, X_test.shape[0], BATCH_SIZE):
-            # Get batch of images and labels
-            X = X_test[i : min(i + BATCH_SIZE, X_test.shape[0])]
-            y = y_test[i : min(i + BATCH_SIZE, y_test.shape[0])]
+        for batch_start in range(0, X_test.shape[0], BATCH_SIZE):
+            # If the last batch is smaller than BATCH_SIZE, batch end index can't be batch_start + BATCH_SIZE
+            batch_end = min(batch_start + BATCH_SIZE, X_test.shape[0])
 
+            # Get batch of images and labels
+            # Shape: (Batch size, Channels, Height, Width)
+            X = X_test[batch_start:batch_end]
+            # Shape: (Batch size,)
+            y = y_test[batch_start:batch_end]
+            # Shape: (Batch size, Classes)
+            y_one_hot = y_test_one_hot[batch_start:batch_end]
+
+            # Shape: (Batch size, Classes)
             y_pred = model.forward(X)
 
-            loss = loss_fn.forward(y_pred, y)
+            loss = loss_fn.forward(y_pred, y_one_hot)
             total_loss += loss
-            correct_preds += np.sum(np.argmax(y_pred) == np.argmax(y))
+            correct_preds += np.sum(np.argmax(y_pred, axis=-1) == y)
 
         test_loss = total_loss / np.ceil(X_test.shape[0] / BATCH_SIZE)
         test_loss_history.append(test_loss)
