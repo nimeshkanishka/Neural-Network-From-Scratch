@@ -1,5 +1,5 @@
 """
-Training a convolutional neural network on MNIST dataset to classify images of digits 0 and 1.
+Training a convolutional neural network on a subset of MNIST dataset to classify images of digits 0 and 1.
 """
 
 import os
@@ -11,6 +11,7 @@ import nn
 
 
 # Parent directory of the dataset
+# Dataset from: https://www.kaggle.com/datasets/ben519/mnist-as-png
 DATASET_PARENT_DIR = r"D:\Datasets\MNIST-PNG"
 # Categories to use for training
 # Here we will do binary classification of digits 0 and 1
@@ -91,9 +92,9 @@ if __name__ == "__main__":
         nn.Conv2d((1, 28, 28), 8, kernel_size=3),
         nn.ReLU(),
         nn.Flatten(),
-        nn.Linear(8 * 26 * 26, 256),
+        nn.Linear(8 * 26 * 26, 128),
         nn.ReLU(),
-        nn.Linear(256, 1),
+        nn.Linear(128, 1),
         nn.Sigmoid()
     )
     loss_fn = nn.BCELoss()
